@@ -306,14 +306,6 @@ trigger:
       - !input sensor_current_price
       - !input sensor_current_group
       - !input sensor_soc
-      - !input forecast_h1
-      - !input forecast_h2
-      - !input forecast_h3
-      - !input forecast_h4
-      - !input forecast_h5
-      - !input forecast_h6
-      - !input forecast_h7
-      - !input forecast_h8
     for: "00:00:10"
   - platform: time_pattern
     minutes: "/5"
