@@ -4,11 +4,11 @@
 Deze repository bevat een Home Assistant blueprint voor slimme aansturing van een thuisbatterij op basis van dynamische energieprijzen, forecast, SOC, en optionele functies zoals anti-rondpompen en verbruik-blokker (EV).
 
 ## Installatie
-1. Kopieer `blueprints/zonneplan_battery_optimization_switching_patched.yaml` naar `config/blueprints/automation/<jouw-map>/`.
+1. Kopieer `blueprints/zonneplan_battery_optimization_switching.yaml` naar `config/blueprints/automation/<jouw-map>/`.
 2. Herlaad Blueprints in Home Assistant (Instellingen → Automatiseringen & Scènes → Blueprints → Herladen).
 3. Maak een nieuwe automatisering op basis van de blueprint en koppel de entiteiten.
 
-## Vereiste entiteiten
+## Vereiste entiteiten of vergelijkbare sensoren
 - `sensor.zonneplan_current_electricity_tariff`
 - `sensor.zonneplan_current_tariff_group`
 - `sensor.nexus_solarman_battery`
