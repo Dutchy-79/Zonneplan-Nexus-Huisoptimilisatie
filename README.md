@@ -21,30 +21,6 @@ Deze repository bevat een Home Assistant blueprint voor slimme aansturing van ee
 - Anti-rondpompen: `sensor.connect_energiemeter_electricity_consumption`
 - EV-blokker: `sensor.charge_laadstation_kwh_charge_point_power`
 
-## Visuele Flowchart (Mermaid)
-> GitHub ondersteunt Mermaid; de flow wordt direct gerenderd in de README.
-
-```mermaid
-flowchart TD
-  A[Start / Trigger] --> B{Prijs < drempel?}
-  B -- Ja --> C[Zet modus = dynamic_charging]
-  C --> C1[Discharge = 0 W]
-  C1 --> C2[Charge = power_charge_when_cheap]
-  B -- Nee --> D[Zet modus = home_optimization]
-  D --> E{SOC ≤ dyn_reserve?}
-  E -- Ja --> E1[Discharge = 0 W]
-  E -- Nee --> F{EV-blokker actief?}
-  F -- Ja --> F1[Discharge = 0 W]
-  F -- Nee --> G{Anti-rond OK (netlast > min)?}
-  G -- Nee --> G1[Discharge = 0 W]
-  G -- Ja --> H{Categorie}
-  H -- HIGH --> H1[Discharge = power_high]
-  H -- MEDIUM --> H2[Discharge = power_medium]
-  H -- LOW --> I{SOC ≥ low_floor?}
-  I -- Nee --> I1[Discharge = 0 W]
-  I -- Ja --> I2[Discharge = power_low_cap]
-```
-
 ## Voorbeeldconfiguratie
 Zie [`example_config.yaml`](example_config.yaml).
 
