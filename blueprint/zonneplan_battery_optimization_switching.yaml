@@ -1,10 +1,11 @@
 blueprint:
-  name: Zonneplan Thuisbatterij Optimalisatie (met EV-blokker, forecast +1..+8, anti-rond optioneel)
+  name: Zonneplan Thuisbatterij Optimalisatie (gepatcht: optionele sensoren niet verplicht)
   description: >
-    Automatisering met moduswissel (dynamic_charging ↔ home_optimization),
-    dynamische reserve-SOC op basis van forecast +1..+8, optionele anti-rondpompen,
-    en optionele blokker: als een verbruikssensor (bv. EV-laadpaal) boven een drempel zit, niet ontladen.
-    Presets: min reserve-SOC 35%, MEDIUM 1500W, LOW 1000W, HIGH 6000W, laden 8000W.
+    Aansturing van thuisbatterij met prijsdrempel (dynamic_charging ↔ home_optimization),
+    categoriegestuurd ontladen, dynamische reserve op basis van forecast +1..+8,
+    optionele anti-rondpompen en optionele verbruik-blokker (bv. EV-laadpaal).
+    Deze gepatchte versie verwijdert optionele sensoren uit de triggers, zodat de automation
+    ook zonder die entiteiten kan worden opgeslagen.
   domain: automation
 
   input:
@@ -28,6 +29,7 @@ blueprint:
         entity:
           domain: sensor
 
+    # Forecast (8 uur)
     forecast_h1:
       name: "Forecast categorie +1 uur"
       description: "Bijvoorbeeld: sensor.zonneplan_forecast_tariff_group_hour_1"
@@ -346,7 +348,7 @@ action:
         {% else %}           {{ base }}
         {% endif %}
 
-  # Anti-rondpompen + EV-blokker: optioneel
+  # Anti-rondpompen + EV-blokker: optioneel (alleen als inputs gezet zijn)
   - variables:
       house_pwr_ok: >-
         {% if v_house_pwr in ['', None] %}
@@ -367,7 +369,6 @@ action:
 
   # Moduswissel op basis van prijsdrempel
   - choose:
-      # Goedkope prijs: dynamic_charging, ontladen uit, laden aan
       - conditions: "{{ price < (v_price_floor | float(0.20)) }}"
         sequence:
           - service: select.select_option
@@ -386,7 +387,6 @@ action:
             data:
               value: "{{ v_p_charge }}"
 
-      # Duurdere prijs: home_optimization + blokkers + categorie/SOC-logica
       - conditions: "{{ price >= (v_price_floor | float(0.20)) }}"
         sequence:
           - service: select.select_option
@@ -395,7 +395,6 @@ action:
             data:
               option: "home_optimization"
           - choose:
-              # 1) Blokkers: EV-blokker of SOC <= reserve → niet ontladen
               - conditions: "{{ block_ev or soc <= (dyn_reserve | float(35)) }}"
                 sequence:
                   - service: number.set_value
@@ -404,7 +403,6 @@ action:
                     data:
                       value: 0
 
-              # 2) Categoriegestuurd ontladen (alleen als house_pwr_ok)
               - conditions: "{{ house_pwr_ok and cat == 'high' }}"
                 sequence:
                   - service: number.set_value
