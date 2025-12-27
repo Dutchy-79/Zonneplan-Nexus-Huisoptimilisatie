@@ -1,4 +1,3 @@
-
 # Home Assistant Blueprint: Slimme Thuisbatterij Optimalisatie
 
 ## Introductie
@@ -24,3 +23,6 @@ Deze repository bevat een Home Assistant blueprint voor slimme aansturing van ee
 
 ## Voorbeeldconfiguratie
 Zie [`examples/example_config.yaml`](examples/example_config.yaml).
+
+## Uitgebreide uitleg
+Zie [`Blueprint_Uitleg.md`](Blueprint_Uitleg.md).
