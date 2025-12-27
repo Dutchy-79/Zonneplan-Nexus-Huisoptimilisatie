@@ -1,6 +1,5 @@
-
 blueprint:
-  name: Zonneplan Thuisbatterij Optimalisatie (defaults + descriptions, zonder forecast-triggers)
+  name: Preset Zonneplan Thuisbatterij Optimalisatie (defaults + descriptions, zonder forecast-triggers)
   description: >
     Blueprint voor slimme thuisbatterij-aansturing met prijsdrempel, forecast +1..+8,
     categoriegestuurde ontlading, optionele anti-rondpompen en optionele EV-verbruik-blokker.
