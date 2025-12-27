@@ -312,8 +312,6 @@ trigger:
       - !input forecast_h6
       - !input forecast_h7
       - !input forecast_h8
-      - !input sensor_house_power
-      - !input sensor_block_discharge
     for: "00:00:10"
   - platform: time_pattern
     minutes: "/5"
