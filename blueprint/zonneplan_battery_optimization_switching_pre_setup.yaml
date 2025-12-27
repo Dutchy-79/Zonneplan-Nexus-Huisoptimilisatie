@@ -28,8 +28,8 @@ blueprint:
 
     sensor_soc:
       name: "Batterij SOC (%)"
-      description: "Bijvoorbeeld: sensor.nexus_solarman_battery"
-      default: sensor.nexus_solarman_battery
+      description: "Bijvoorbeeld: sensor.thuisbatterij_percentage"
+      default: sensor.thuisbatterij_percentage
       selector:
         entity:
           domain: sensor
