@@ -1,0 +1,12 @@
+# Voorbeeld inputs (te gebruiken bij het aanmaken van de automatisering uit de blueprint)
+sensor_house_power: sensor.connect_energiemeter_electricity_consumption
+sensor_block_discharge: sensor.charge_laadstation_kwh_charge_point_power
+block_discharge_threshold_w: 2000
+min_discharge_net_load_w: 300
+price_floor: 0.20
+soc_reserve_min: 35
+soc_low_floor: 80
+power_high: 6000
+power_medium: 1500
+power_low_cap: 1000
+power_charge_when_cheap: 8000
