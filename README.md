@@ -35,7 +35,7 @@ flowchart TD
   E -- Ja --> E1[Discharge = 0 W]
   E -- Nee --> F{EV-blokker actief?}
   F -- Ja --> F1[Discharge = 0 W]
-  F -- Nee --> G{Anti-rond OK (netlast >= min)?}
+  F -- Nee --> G{Anti-rond OK (netlast > min)?}
   G -- Nee --> G1[Discharge = 0 W]
   G -- Ja --> H{Categorie}
   H -- HIGH --> H1[Discharge = power_high]
