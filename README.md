@@ -22,7 +22,7 @@ Deze repository bevat een Home Assistant blueprint voor slimme aansturing van ee
 - EV-blokker: `sensor.charge_laadstation_kwh_charge_point_power`
 
 ## Voorbeeldconfiguratie
-Zie [`examples/example_config.yaml`](examples/example_config.yaml).
+Zie [`example_config.yaml`](example_config.yaml).
 
 ## Uitgebreide uitleg
 Zie [`Blueprint_Uitleg.md`](Blueprint_Uitleg.md).
