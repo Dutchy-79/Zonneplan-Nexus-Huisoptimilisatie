@@ -93,3 +93,21 @@ Deze blueprint is ontworpen om een **thuisbatterij slim aan te sturen** op basis
 - Slimme profielen: weekendmodus, nachtmodus
 - Notificaties: meldingen bij moduswissel of blokkering
 - Maximale cycli per dag: voor batterijlevensduur
+
+Er zijn meerdere condities waarin ontladen wordt geblokkeerd:
+
+Prijs < prijsdrempel
+→ Ontladen uit (zie hierboven).
+
+SOC ≤ dynamische reserve-SOC
+→ Als de batterij onder de berekende reserve zit (bijv. 35%, of hoger bij forecast), wordt niet ontladen.
+
+EV-blokker actief
+→ Als de opgegeven sensor (bijv.  sensor.charge_laadstation_kwh_charge_point_power ) ≥ ingestelde drempel (bijv. 2.000 W), wordt ontladen geblokkeerd.
+
+
+Anti-rondpompen
+→ Als de net-/huislastsensor ( sensor.connect_energiemeter_electricity_consumption ) lager is dan de ingestelde drempel (standaard 300 W), wordt ontladen niet toegestaan.
+
+LOW-categorie en SOC < LOW-drempel
+→ Bij prijscategorie LOW mag alleen ontladen als SOC ≥ LOW-floor (standaard 80%). Anders ontladen = 0.
