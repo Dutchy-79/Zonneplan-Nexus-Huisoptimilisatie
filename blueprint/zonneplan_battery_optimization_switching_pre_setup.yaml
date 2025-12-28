@@ -1,3 +1,4 @@
+
 blueprint:
   name: Preset Zonneplan Thuisbatterij Optimalisatie (defaults + descriptions, zonder forecast-triggers)
   description: >
@@ -19,7 +20,7 @@ blueprint:
           domain: sensor
 
     sensor_current_group:
-      name: "Huidige prijscategorie (low/medium/high)"
+      name: "Huidige prijscategorie (low/normal/high)"
       description: "Bijvoorbeeld: sensor.zonneplan_current_tariff_group"
       default: sensor.zonneplan_current_tariff_group
       selector:
@@ -167,8 +168,8 @@ blueprint:
           mode: slider
 
     power_medium:
-      name: "MEDIUM - ontlaadvermogen (W)"
-      description: "Ontlaadvermogen bij prijscategorie MEDIUM."
+      name: "NORMAL - ontlaadvermogen (W)"
+      description: "Ontlaadvermogen bij prijscategorie NORMAL."
       default: 1500
       selector:
         number:
@@ -270,12 +271,6 @@ variables:
   v_p_low:  !input power_low_cap
   v_p_charge: !input power_charge_when_cheap
 
-  v_dyn_high_0_2: !input dyn_res_high_0_2h
-  v_dyn_high_2_4: !input dyn_res_high_2_4h
-  v_dyn_med_0_2: !input dyn_res_medium_0_2h
-  v_dyn_high_4_8: !input dyn_res_high_4_8h
-  v_dyn_med_4_8:  !input dyn_res_medium_4_8h
-
   v_min_net_load: !input min_discharge_net_load_w
 
   v_block_sensor: !input sensor_block_discharge
@@ -310,13 +305,13 @@ action:
         {% set soon_high = 'high' in fc[0:2] %}
         {% set near_high = 'high' in fc[2:4] %}
         {% set later_high = 'high' in fc[4:8] %}
-        {% set soon_med  = 'medium' in fc[0:2] %}
-        {% set later_med = 'medium' in fc[4:8] %}
+        {% set soon_norm = 'normal' in fc[0:2] %}
+        {% set later_norm = 'normal' in fc[4:8] %}
         {% if soon_high %} {{ [base, (55) ] | max }}
         {% elif near_high %} {{ [base, (45) ] | max }}
-        {% elif soon_med  %} {{ [base, (40) ] | max }}
+        {% elif soon_norm %} {{ [base, (40) ] | max }}
         {% elif later_high %} {{ [base, (40) ] | max }}
-        {% elif later_med  %} {{ [base, (35) ] | max }}
+        {% elif later_norm %} {{ [base, (35) ] | max }}
         {% else %}           {{ base }}
         {% endif %}
 
@@ -380,7 +375,7 @@ action:
                       entity_id: !input number_discharge_power
                     data:
                       value: "{{ v_p_high }}"
-              - conditions: "{{ house_pwr_ok and cat == 'medium' }}"
+              - conditions: "{{ house_pwr_ok and cat == 'normal' }}"
                 sequence:
                   - service: number.set_value
                     target:
@@ -405,4 +400,3 @@ action:
                           value: 0
 
 mode: single
-
