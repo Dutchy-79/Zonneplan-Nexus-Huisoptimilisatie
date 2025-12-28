@@ -9,7 +9,7 @@ Deze repository bevat een Home Assistant blueprint voor slimme aansturing van ee
 3. Maak een nieuwe automatisering op basis van de blueprint en koppel de entiteiten.
 
 Variant toegevoegd waarbij de forecast states zelf in te vullen zijn voor de nederlandse versie.
-Zie [`blueprint/Zonneplan_Thuisbatterij_Optimalisatie_sensor-defaults_leeg_custom_state_labels`](Zonneplan_Thuisbatterij_Optimalisatie_sensor-defaults_leeg_custom_state_labels).
+Zie [`blueprint/Zonneplan_Thuisbatterij_Optimalisatie_sensor-defaults_leeg_custom_state_labels`](blueprint/Zonneplan_Thuisbatterij_Optimalisatie_sensor-defaults_leeg_custom_state_labels).
 
 ## Vereiste entiteiten of vergelijkbare sensoren
 - `sensor.zonneplan_current_electricity_tariff`
