@@ -11,6 +11,9 @@ Deze repository bevat een Home Assistant blueprint voor slimme aansturing van ee
 Variant toegevoegd waarbij de forecast states zelf in te vullen zijn voor de nederlandse versie.
 Zie [`blueprint/Zonneplan_Thuisbatterij_Optimalisatie_sensor-defaults_leeg_custom_state_labels`](blueprint/Zonneplan_Thuisbatterij_Optimalisatie_sensor-defaults_leeg_custom_state_labels).
 
+Betere versie waarbij er minder naar de zonneplan server wordt gestuurd en deze je eruit gooit.
+blueprint/Nexus_huisoptimalisatie_V3.yaml
+
 ## Vereiste entiteiten of vergelijkbare sensoren
 - `sensor.zonneplan_current_electricity_tariff`
 - `sensor.zonneplan_current_tariff_group`
