@@ -1,0 +1,569 @@
+
+blueprint:
+  name: V3 Zonneplan Thuisbatterij – Huisondersteuning (low/normal/high, UI‑safe)
+  description: >
+    V3 Slimme thuisbatterij-aansturing met prijsdrempel, low/normal/high-categorieën,
+    forecast +1..+8 uur, dynamische reserve, anti-rondpompen en EV‑blokker.
+    Deze versie gebruikt correcte HA-schema-sleutels (trigger/condition/action),
+    ondersteunt 'normal' (i.p.v. 'medium') en bevat UI‑veilige defaults voor
+    de verplichte trigger-sensoren (gevuld) om front-end "describe trigger"
+    fouten te voorkomen. Forecast-sensoren zijn wél inputs maar geen triggers.
+  domain: automation
+
+  input:
+    # ---- Sensors (verplicht voor triggers; defaults ingevuld) ----
+    sensor_current_price:
+      name: Huidige stroomprijs (€/kWh)
+      description: "Bijv.: sensor.zonneplan_current_electricity_tariff"
+      default: sensor.zonneplan_current_electricity_tariff
+      selector:
+        entity:
+          domain: sensor
+
+    sensor_current_group:
+      name: Huidige prijscategorie (low/normal/high)
+      description: "Bijv.: sensor.zonneplan_current_tariff_group"
+      default: sensor.zonneplan_current_tariff_group
+      selector:
+        entity:
+          domain: sensor
+
+    sensor_soc:
+      name: Batterij SOC (%)
+      description: "Bijv.: sensor.nexus_solarman_battery"
+      default: sensor.nexus_solarman_battery
+      selector:
+        entity:
+          domain: sensor
+
+    # ---- Forecast (komende 8 uur) (geen triggers) ----
+    forecast_h1:
+      name: Forecast categorie +1 uur
+      description: "Bijv.: sensor.zonneplan_forecast_tariff_group_hour_1"
+      default: sensor.zonneplan_forecast_tariff_group_hour_1
+      selector:
+        entity:
+          domain: sensor
+    forecast_h2:
+      name: Forecast categorie +2 uur
+      description: "Bijv.: sensor.zonneplan_forecast_tariff_group_hour_2"
+      default: sensor.zonneplan_forecast_tariff_group_hour_2
+      selector:
+        entity:
+          domain: sensor
+    forecast_h3:
+      name: Forecast categorie +3 uur
+      description: "Bijv.: sensor.zonneplan_forecast_tariff_group_hour_3"
+      default: sensor.zonneplan_forecast_tariff_group_hour_3
+      selector:
+        entity:
+          domain: sensor
+    forecast_h4:
+      name: Forecast categorie +4 uur
+      description: "Bijv.: sensor.zonneplan_forecast_tariff_group_hour_4"
+      default: sensor.zonneplan_forecast_tariff_group_hour_4
+      selector:
+        entity:
+          domain: sensor
+    forecast_h5:
+      name: Forecast categorie +5 uur
+      description: "Bijv.: sensor.zonneplan_forecast_tariff_group_hour_5"
+      default: sensor.zonneplan_forecast_tariff_group_hour_5
+      selector:
+        entity:
+          domain: sensor
+    forecast_h6:
+      name: Forecast categorie +6 uur
+      description: "Bijv.: sensor.zonneplan_forecast_tariff_group_hour_6"
+      default: sensor.zonneplan_forecast_tariff_group_hour_6
+      selector:
+        entity:
+          domain: sensor
+    forecast_h7:
+      name: Forecast categorie +7 uur
+      description: "Bijv.: sensor.zonneplan_forecast_tariff_group_hour_7"
+      default: sensor.zonneplan_forecast_tariff_group_hour_7
+      selector:
+        entity:
+          domain: sensor
+    forecast_h8:
+      name: Forecast categorie +8 uur
+      description: "Bijv.: sensor.zonneplan_forecast_tariff_group_hour_8"
+      default: sensor.zonneplan_forecast_tariff_group_hour_8
+      selector:
+        entity:
+          domain: sensor
+
+    # ---- Actuators ----
+    select_mode:
+      name: Battery control mode select (dynamic_charging | home_optimization)
+      description: "Bijv.: select.thuisbatterij_battery_control_mode"
+      default: select.thuisbatterij_battery_control_mode
+      selector:
+        entity:
+          domain: select
+
+    number_charge_power:
+      name: Max charge power (W)
+      description: "Bijv.: number.thuisbatterij_max_charge_power_home_optimization"
+      default: number.thuisbatterij_max_charge_power_home_optimization
+      selector:
+        entity:
+          domain: number
+
+    number_discharge_power:
+      name: Max discharge power (W)
+      description: "Bijv.: number.thuisbatterij_max_discharge_power_home_optimization"
+      default: number.thuisbatterij_max_discharge_power_home_optimization
+      selector:
+        entity:
+          domain: number
+
+    # ---- Drempels & Vermogens ----
+    price_floor:
+      name: Prijsdrempel voor ontladen (€/kWh)
+      default: 0.18
+      selector:
+        number:
+          min: 0
+          max: 1
+          step: 0.01
+          unit_of_measurement: "€/kWh"
+          mode: slider
+
+    soc_reserve_min:
+      name: Minimale reserve-SOC (%)
+      default: 35
+      selector:
+        number:
+          min: 0
+          max: 80
+          step: 1
+          unit_of_measurement: "%"
+          mode: slider
+
+    soc_low_floor:
+      name: LOW-categorie SOC-drempel voor beperkte ondersteuning (%)
+      default: 80
+      selector:
+        number:
+          min: 50
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+          mode: slider
+
+    power_high:
+      name: HIGH - ontlaadvermogen (W)
+      default: 4000
+      selector:
+        number:
+          min: 0
+          max: 10000
+          step: 100
+          unit_of_measurement: "W"
+          mode: slider
+
+    power_medium:
+      name: NORMAL - ontlaadvermogen (W)
+      default: 2500
+      selector:
+        number:
+          min: 0
+          max: 10000
+          step: 100
+          unit_of_measurement: "W"
+          mode: slider
+
+    power_low_cap:
+      name: LOW - beperkt ontlaadvermogen (W)
+      default: 1500
+      selector:
+        number:
+          min: 0
+          max: 10000
+          step: 100
+          unit_of_measurement: "W"
+          mode: slider
+
+    power_charge_when_cheap:
+      name: Laden bij goedkope prijs (W)
+      default: 8000
+      selector:
+        number:
+          min: 0
+          max: 10000
+          step: 100
+          unit_of_measurement: "W"
+          mode: slider
+
+    # ---- Dynamische reserve-parameters (configureerbaar) ----
+    dyn_res_high_0_2h:
+      name: Dyn reserve bij HIGH in 0–2 uur (%)
+      default: 55
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+          mode: slider
+    dyn_res_high_2_4h:
+      name: Dyn reserve bij HIGH in 2–4 uur (%)
+      default: 45
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+          mode: slider
+    dyn_res_normal_0_2h:
+      name: Dyn reserve bij NORMAL in 0–2 uur (%)
+      default: 40
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+          mode: slider
+    dyn_res_high_4_8h:
+      name: Dyn reserve bij HIGH in 4–8 uur (%)
+      default: 40
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+          mode: slider
+    dyn_res_normal_4_8h:
+      name: Dyn reserve bij NORMAL in 4–8 uur (%)
+      default: 35
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+          mode: slider
+
+    # ---- Anti-rondpompen en EV-blokker ----
+    sensor_house_power:
+      name: Anti-rondpompen sensor (W) (optioneel)
+      description: "Bijv.: sensor.stroomverbruik (positief = afname)"
+      default: sensor.stroomverbruik
+      selector:
+        entity:
+          domain: sensor
+
+    min_discharge_net_load_w:
+      name: Minimale net-/huislast om te mogen ontladen (W)
+      default: 300
+      selector:
+        number:
+          min: 0
+          max: 2000
+          step: 50
+          unit_of_measurement: "W"
+          mode: slider
+
+    sensor_block_discharge:
+      name: Blokker verbruikssensor (W) (optioneel, bijv. EV-laadpaal)
+      default: sensor.charge_laadstation_kwh_charge_point_power
+      selector:
+        entity:
+          domain: sensor
+
+    block_discharge_threshold_w:
+      name: Blokker-drempel (W) — vanaf dit verbruik NIET ontladen
+      default: 2000
+      selector:
+        number:
+          min: 0
+          max: 20000
+          step: 50
+          unit_of_measurement: "W"
+          mode: slider
+
+variables:
+  v_price: !input sensor_current_price
+  v_cat: !input sensor_current_group
+  v_soc: !input sensor_soc
+
+  v_f1: !input forecast_h1
+  v_f2: !input forecast_h2
+  v_f3: !input forecast_h3
+  v_f4: !input forecast_h4
+  v_f5: !input forecast_h5
+  v_f6: !input forecast_h6
+  v_f7: !input forecast_h7
+  v_f8: !input forecast_h8
+
+  v_select_mode: !input select_mode
+  v_num_charge: !input number_charge_power
+  v_num_discharge: !input number_discharge_power
+
+  v_house_pwr: !input sensor_house_power
+
+  v_price_floor: !input price_floor
+  v_soc_reserve_min: !input soc_reserve_min
+  v_soc_low_floor: !input soc_low_floor
+
+  v_p_high: !input power_high
+  v_p_med: !input power_medium
+  v_p_low: !input power_low_cap
+  v_p_charge: !input power_charge_when_cheap
+
+  v_dyn_high_0_2: !input dyn_res_high_0_2h
+  v_dyn_high_2_4: !input dyn_res_high_2_4h
+  v_dyn_norm_0_2: !input dyn_res_normal_0_2h
+  v_dyn_high_4_8: !input dyn_res_high_4_8h
+  v_dyn_norm_4_8: !input dyn_res_normal_4_8h
+
+  v_min_net_load: !input min_discharge_net_load_w
+
+  v_block_sensor: !input sensor_block_discharge
+  v_block_threshold: !input block_discharge_threshold_w
+# - input: sensor_current_group 
+trigger:
+  - platform: state
+    entity_id:
+      - !input sensor_current_price
+      - !input sensor_soc
+    for: "00:00:15"
+  - platform: time_pattern
+    minutes: "/6"
+
+condition: []
+
+action:
+  - variables:
+      price: "{{ states(v_price) | float(0) }}"
+      cat: "{{ states(v_cat) | lower }}"
+      soc: "{{ states(v_soc) | float(0) }}"
+      fc: >
+        {{ [
+          (states(v_f1) or '')|lower, (states(v_f2) or '')|lower, (states(v_f3) or '')|lower, (states(v_f4) or '')|lower,
+          (states(v_f5) or '')|lower, (states(v_f6) or '')|lower, (states(v_f7) or '')|lower, (states(v_f8) or '')|lower
+        ] }}
+
+  - variables:
+      dyn_reserve: >-
+        {% set base = v_soc_reserve_min | float(35) %}
+        {% set soon_high = 'high' in fc[0:2] %}
+        {% set near_high = 'high' in fc[2:4] %}
+        {% set later_high = 'high' in fc[4:8] %}
+        {% set soon_norm  = 'normal' in fc[0:2] %}
+        {% set later_norm = 'normal' in fc[4:8] %}
+        {% if soon_high %} {{ [base, (v_dyn_high_0_2 | float(55))] | max }}
+        {% elif near_high %} {{ [base, (v_dyn_high_2_4 | float(45))] | max }}
+        {% elif soon_norm  %} {{ [base, (v_dyn_norm_0_2 | float(40))] | max }}
+        {% elif later_high %} {{ [base, (v_dyn_high_4_8 | float(40))] | max }}
+        {% elif later_norm %} {{ [base, (v_dyn_norm_4_8 | float(35))] | max }}
+        {% else %}           {{ base }}
+        {% endif %}
+
+  - variables:
+      house_pwr_ok: >-
+        {% if v_house_pwr in ['', None] %}
+          true
+        {% else %}
+          {% set p = states(v_house_pwr) | float(0) %}
+          {% set minp = v_min_net_load | float(300) %}
+          {{ p >= minp }}
+        {% endif %}
+      block_ev: >-
+        {% if v_block_sensor in ['', None] %}
+          false
+        {% else %}
+          {% set ev = states(v_block_sensor) | float(0) %}
+          {% set thr = v_block_threshold | float(0) %}
+          {{ ev >= thr and thr > 0 }}
+        {% endif %}
+
+  - choose:
+      # --- Onder drempel: blijven in home_optimization, laden toegestaan, ontladen = 0 ---
+      - conditions: "{{ price < (v_price_floor | float(0.20)) }}"
+        sequence:
+          - service: select.select_option
+            target:
+              entity_id: !input select_mode
+            data:
+              option: home_optimization
+
+          # Eerst ontladen uit, dan laden instellen (twee keer met delay + bevestiging)
+          - service: number.set_value
+            target:
+              entity_id: !input number_discharge_power
+            data:
+              value: 0
+
+          - service: number.set_value
+            target:
+              entity_id: !input number_charge_power
+            data:
+              value: "{{ v_p_charge }}"
+          - delay: "00:00:01"
+          - service: number.set_value
+            target:
+              entity_id: !input number_charge_power
+            data:
+              value: "{{ v_p_charge }}"
+          - wait_template: "{{ (states(v_num_charge) | float(0)) == (v_p_charge | float(0)) }}"
+            timeout: "00:00:03"
+            continue_on_timeout: true
+
+      # --- Boven drempel: home_optimization + categorie-logica ---
+      - conditions: "{{ price >= (v_price_floor | float(0.20)) }}"
+        sequence:
+          - service: select.select_option
+            target:
+              entity_id: !input select_mode
+            data:
+              option: home_optimization
+
+          - choose:
+              # Niet ontladen (EV-blokker of SOC onder dyn reserve) — laden nu expliciet = 0 (dubbel + bevestiging)
+              - conditions: "{{ block_ev or soc <= (dyn_reserve | float(35)) }}"
+                sequence:
+                  - service: number.set_value
+                    target:
+                      entity_id: !input number_discharge_power
+                    data:
+                      value: 0
+                  - service: number.set_value
+                    target:
+                      entity_id: !input number_charge_power
+                    data:
+                      value: 0
+                  - delay: "00:00:01"
+                  - service: number.set_value
+                    target:
+                      entity_id: !input number_charge_power
+                    data:
+                      value: 0
+                  - wait_template: "{{ (states(v_num_charge) | float(0)) == 0 }}"
+                    timeout: "00:00:03"
+                    continue_on_timeout: true
+
+              # HIGH categorie — ontladen en laden = 0 (dubbel + bevestiging)
+              - conditions: "{{ house_pwr_ok and cat == 'high' }}"
+                sequence:
+                  - service: number.set_value
+                    target:
+                      entity_id: !input number_discharge_power
+                    data:
+                      value: "{{ v_p_high }}"
+                  - service: number.set_value
+                    target:
+                      entity_id: !input number_charge_power
+                    data:
+                      value: 0
+                  - delay: "00:00:01"
+                  - service: number.set_value
+                    target:
+                      entity_id: !input number_charge_power
+                    data:
+                      value: 0
+                  - wait_template: "{{ (states(v_num_charge) | float(0)) == 0 }}"
+                    timeout: "00:00:03"
+                    continue_on_timeout: true
+
+              # NORMAL categorie — ontladen en laden = 0 (dubbel + bevestiging)
+              - conditions: "{{ house_pwr_ok and cat == 'normal' }}"
+                sequence:
+                  - service: number.set_value
+                    target:
+                      entity_id: !input number_discharge_power
+                    data:
+                      value: "{{ v_p_med }}"
+                  - service: number.set_value
+                    target:
+                      entity_id: !input number_charge_power
+                    data:
+                      value: 0
+                  - delay: "00:00:01"
+                  - service: number.set_value
+                    target:
+                      entity_id: !input number_charge_power
+                    data:
+                      value: 0
+                  - wait_template: "{{ (states(v_num_charge) | float(0)) == 0 }}"
+                    timeout: "00:00:03"
+                    continue_on_timeout: true
+
+              # LOW categorie — beperkt ontladen (bij hoge SOC), anders alles = 0 (dubbel + bevestiging)
+              - conditions: "{{ cat == 'low' }}"
+                sequence:
+                  - choose:
+                      - conditions: "{{ house_pwr_ok and (soc >= (v_soc_low_floor | float(80))) }}"
+                        sequence:
+                          - service: number.set_value
+                            target:
+                              entity_id: !input number_discharge_power
+                            data:
+                              value: "{{ v_p_low }}"
+                          - service: number.set_value
+                            target:
+                              entity_id: !input number_charge_power
+                            data:
+                              value: 0
+                          - delay: "00:00:01"
+                          - service: number.set_value
+                            target:
+                              entity_id: !input number_charge_power
+                            data:
+                              value: 0
+                          - wait_template: "{{ (states(v_num_charge) | float(0)) == 0 }}"
+                            timeout: "00:00:03"
+                            continue_on_timeout: true
+                    default:
+                      - service: number.set_value
+                        target:
+                          entity_id: !input number_discharge_power
+                        data:
+                          value: 0
+                      - service: number.set_value
+                        target:
+                          entity_id: !input number_charge_power
+                        data:
+                          value: 0
+                      - delay: "00:00:01"
+                      - service: number.set_value
+                        target:
+                          entity_id: !input number_charge_power
+                        data:
+                          value: 0
+                      - wait_template: "{{ (states(v_num_charge) | float(0)) == 0 }}"
+                        timeout: "00:00:03"
+                        continue_on_timeout: true
+
+  # --- Slot-guard: exclusiviteit afdwingen op basis van actuele waarden ---
+  - choose:
+      - conditions: "{{ (states(v_num_discharge) | float(0)) > 0 }}"
+        sequence:
+          - service: number.set_value
+            target:
+              entity_id: !input number_charge_power
+            data:
+              value: 0
+      - conditions: "{{ (states(v_num_discharge) | float(0)) == 0 and price >= (v_price_floor | float(0.20)) }}"
+        sequence:
+          - service: number.set_value
+            target:
+              entity_id: !input number_charge_power
+            data:
+              value: 0
+      - conditions: "{{ (states(v_num_discharge) | float(0)) == 0 and price < (v_price_floor | float(0.20)) }}"
+        sequence:
+          - service: number.set_value
+            target:
+              entity_id: !input number_charge_power
+            data:
+              value: "{{ v_p_charge }}"
+
+trace:
+  stored_traces: 20
+mode: single
