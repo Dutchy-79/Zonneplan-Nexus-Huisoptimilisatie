@@ -1,0 +1,421 @@
+blueprint:
+  name: Preset Zonneplan Thuisbatterij Optimalisatie (laden op prijs)
+  description: >
+    Slimme thuisbatterij-aansturing met:
+    - Laden bij prijs ≤ ceiling (incl. negatieve prijzen), met doel-SOC en failsafe SOC-min.
+    - Categoriegestuurde ontlading; price_floor knijpt alleen ontladen.
+    - Anti-rondpompen: ontladen alleen bij voldoende net-/huislast; laden alleen bij beperkte netimport (of bij export).
+    - EV-blokker geldt voor laden én ontladen.
+    - Idempotent: alleen schrijven bij echte wijzigingen; uitgebreide debug-logging.
+  domain: automation
+
+  input:
+    # ---- Sensors (verplicht) ----
+    sensor_current_price:
+      name: "Huidige stroomprijs (€/kWh)"
+      description: "Bijv.: sensor.zonneplan_current_electricity_tariff"
+      default: sensor.zonneplan_current_electricity_tariff
+      selector: { entity: { domain: sensor } }
+
+    sensor_current_group:
+      name: "Huidige prijscategorie (low/normal/high)"
+      description: "Bijv.: sensor.zonneplan_current_tariff_group"
+      default: sensor.zonneplan_current_tariff_group
+      selector: { entity: { domain: sensor } }
+
+    sensor_soc:
+      name: "Batterij SOC (%)"
+      description: "Bijv.: sensor.thuisbatterij_percentage"
+      default: sensor.thuisbatterij_percentage
+      selector: { entity: { domain: sensor } }
+
+    # ---- Forecast (komende 8 uur) ----
+    forecast_h1:
+      name: "Forecast categorie +1 uur"
+      default: sensor.zonneplan_forecast_tariff_group_hour_1
+      selector: { entity: { domain: sensor } }
+    forecast_h2:
+      name: "Forecast categorie +2 uur"
+      default: sensor.zonneplan_forecast_tariff_group_hour_2
+      selector: { entity: { domain: sensor } }
+    forecast_h3:
+      name: "Forecast categorie +3 uur"
+      default: sensor.zonneplan_forecast_tariff_group_hour_3
+      selector: { entity: { domain: sensor } }
+    forecast_h4:
+      name: "Forecast categorie +4 uur"
+      default: sensor.zonneplan_forecast_tariff_group_hour_4
+      selector: { entity: { domain: sensor } }
+    forecast_h5:
+      name: "Forecast categorie +5 uur"
+      default: sensor.zonneplan_forecast_tariff_group_hour_5
+      selector: { entity: { domain: sensor } }
+    forecast_h6:
+      name: "Forecast categorie +6 uur"
+      default: sensor.zonneplan_forecast_tariff_group_hour_6
+      selector: { entity: { domain: sensor } }
+    forecast_h7:
+      name: "Forecast categorie +7 uur"
+      default: sensor.zonneplan_forecast_tariff_group_hour_7
+      selector: { entity: { domain: sensor } }
+    forecast_h8:
+      name: "Forecast categorie +8 uur"
+      default: sensor.zonneplan_forecast_tariff_group_hour_8
+      selector: { entity: { domain: sensor } }
+
+    # ---- Actuators (verplicht) ----
+    select_mode:
+      name: "Battery control mode select (home_optimization)"
+      description: "Bijv.: select.thuisbatterij_battery_control_mode"
+      default: select.thuisbatterij_battery_control_mode
+      selector: { entity: { domain: select } }
+
+    number_charge_power:
+      name: "Max charge power (W)"
+      description: "Bijv.: number.thuisbatterij_max_charge_power_home_optimization"
+      default: number.thuisbatterij_max_charge_power_home_optimization
+      selector: { entity: { domain: number } }
+
+    number_discharge_power:
+      name: "Max discharge power (W)"
+      description: "Bijv.: number.thuisbatterij_max_discharge_power_home_optimization"
+      default: number.thuisbatterij_max_discharge_power_home_optimization
+      selector: { entity: { domain: number } }
+
+    # ---- Drempels & Vermogens (ontladen) ----
+    price_floor:
+      name: "Prijsdrempel ontladen (€/kWh) — onder deze prijs: niet ontladen"
+      description: "Knijp voor ontladen; laden wordt apart geregeld met price_charge_ceiling."
+      default: 0.20
+      selector:
+        number: {min: -0.50, max: 1, step: 0.01, unit_of_measurement: "€/kWh", mode: slider}
+
+    soc_reserve_min:
+      name: "Minimale reserve-SOC voor ontladen (%)"
+      description: "Absolute ondergrens; nooit ontladen onder deze SOC."
+      default: 35
+      selector:
+        number: {min: 0, max: 70, step: 5, unit_of_measurement: "%", mode: slider}
+
+    soc_low_floor:
+      name: "LOW-categorie SOC-drempel voor beperkte ondersteuning (%)"
+      description: "Bij prijscategorie LOW alleen ontladen als SOC ≥ deze waarde."
+      default: 60
+      selector:
+        number: {min: 50, max: 100, step: 5, unit_of_measurement: "%", mode: slider}
+
+    power_high:
+      name: "HIGH - ontlaadvermogen (W)"
+      default: 6000
+      selector:
+        number: {min: 0, max: 10000, step: 100, unit_of_measurement: "W", mode: slider}
+
+    power_medium:
+      name: "NORMAL - ontlaadvermogen (W)"
+      default: 4000
+      selector:
+        number: {min: 0, max: 10000, step: 100, unit_of_measurement: "W", mode: slider}
+
+    power_low_cap:
+      name: "LOW - beperkt ontlaadvermogen (W)"
+      default: 3000
+      selector:
+        number: {min: 0, max: 10000, step: 100, unit_of_measurement: "W", mode: slider}
+
+    # ---- Laden (nieuw) ----
+    price_charge_ceiling:
+      name: "Prijsdrempel voor laden (€/kWh) — laden bij prijs ≤ ceiling"
+      default: 0.22
+      selector:
+        number: {min: -0.50, max: 1, step: 0.01, unit_of_measurement: "€/kWh", mode: slider}
+
+    soc_charge_target:
+      name: "Doel-SOC bij goedkoop laden (%)"
+      default: 80
+      selector:
+        number: {min: 40, max: 100, step: 5, unit_of_measurement: "%", mode: slider}
+
+    soc_charge_min:
+      name: "Altijd-laden onder SOC (%) (failsafe)"
+      description: "Onder deze SOC altijd bijladen (veiligheidsbuffer). Zet 0 om uit te zetten."
+      default: 10
+      selector:
+        number: {min: 0, max: 40, step: 5, unit_of_measurement: "%", mode: slider}
+
+    power_charge_when_cheap:
+      name: "Laadvermogen bij goedkoop laden (W)"
+      description: "Wordt gebruikt bij prijs ≤ ceiling of onder SOC-min."
+      default: 8000
+      selector:
+        number: {min: 0, max: 10000, step: 100, unit_of_measurement: "W", mode: slider}
+
+    max_import_for_charging_w:
+      name: "Anti-rondpompen laden: max netimport (W) (0 = uit)"
+      description: "Alleen laden als netimport ≤ drempel of als je aan het terugleveren bent (negatief)."
+      default: 0
+      selector:
+        number: {min: 0, max: 25000, step: 50, unit_of_measurement: "W", mode: slider}
+
+    # ---- Anti-rondpompen ontladen (optioneel) ----
+    sensor_house_power:
+      name: "Net-/huisvermogenssensor (W/kW)"
+      description: "Positief = afname (import), negatief = export (PV). Bijv.: sensor.stroomverbruik"
+      default: sensor.stroomverbruik
+      selector: { entity: { domain: sensor } }
+
+    min_discharge_net_load_w:
+      name: "Minimale net-/huislast om te mogen ontladen (W)"
+      description: "Ontladen alleen als verbruik ≥ deze drempel; 0 = uit."
+      default: 0
+      selector:
+        number: {min: 0, max: 2000, step: 50, unit_of_measurement: "W", mode: slider}
+
+    # ---- EV-verbruik-blokker (optioneel) ----
+    sensor_block_discharge:
+      name: "Blokker verbruikssensor (W) (bijv. EV-laadpaal)"
+      default: sensor.charge_laadstation_kwh_charge_point_power
+      selector: { entity: { domain: sensor } }
+
+    block_discharge_threshold_w:
+      name: "Blokker-drempel (W) — vanaf dit verbruik geen laden/ontladen door batterij"
+      description: "Zet 0 om de blokker uit te schakelen."
+      default: 0
+      selector:
+        number: {min: 0, max: 20000, step: 50, unit_of_measurement: "W", mode: slider}
+
+variables:
+  v_price: !input sensor_current_price
+  v_cat: !input sensor_current_group
+  v_soc: !input sensor_soc
+
+  v_f1: !input forecast_h1
+  v_f2: !input forecast_h2
+  v_f3: !input forecast_h3
+  v_f4: !input forecast_h4
+  v_f5: !input forecast_h5
+  v_f6: !input forecast_h6
+  v_f7: !input forecast_h7
+  v_f8: !input forecast_h8
+
+  v_select_mode: !input select_mode
+  v_num_charge: !input number_charge_power
+  v_num_discharge: !input number_discharge_power
+
+  v_house_pwr: !input sensor_house_power
+
+  v_price_floor: !input price_floor
+  v_soc_reserve_min: !input soc_reserve_min
+  v_soc_low_floor: !input soc_low_floor
+  v_p_high: !input power_high
+  v_p_med: !input power_medium
+  v_p_low: !input power_low_cap
+
+  v_price_ceiling: !input price_charge_ceiling
+  v_soc_charge_target: !input soc_charge_target
+  v_soc_charge_min: !input soc_charge_min
+  v_p_charge: !input power_charge_when_cheap
+  v_max_import_charge: !input max_import_for_charging_w
+
+  v_block_sensor: !input sensor_block_discharge
+  v_block_threshold: !input block_discharge_threshold_w
+
+  # Belangrijke mapping
+  v_min_discharge_net_load_w: !input min_discharge_net_load_w
+
+trigger:
+  - platform: state
+    entity_id:
+      - !input sensor_current_price
+      - !input sensor_current_group
+      - !input sensor_soc
+    for: "00:00:10"
+  - platform: time_pattern
+    minutes: "/5"
+
+condition: []
+
+action:
+  # 1) Lees actuele waarden
+  - variables:
+      price: "{{ states(v_price) | float(0) }}"
+      cat: "{{ states(v_cat) | lower }}"
+      soc: "{{ states(v_soc) | float(0) }}"
+      fc: >
+        {{
+          [
+            states(v_f1)|lower, states(v_f2)|lower, states(v_f3)|lower, states(v_f4)|lower,
+            states(v_f5)|lower, states(v_f6)|lower, states(v_f7)|lower, states(v_f8)|lower
+          ]
+        }}
+      cur_mode: "{{ states(v_select_mode) | lower }}"
+      cur_charge: "{{ states(v_num_charge) | float(0) }}"
+      cur_discharge: "{{ states(v_num_discharge) | float(0) }}"
+
+  # 2) Dynamische SOC-reserve voor ONTLADEN (zoals voorheen)
+  - variables:
+      dyn_reserve: >-
+        {% set base = v_soc_reserve_min | float(35) %}
+        {% set soon_high = 'high' in fc[0:2] %}
+        {% set near_high = 'high' in fc[2:4] %}
+        {% set later_high = 'high' in fc[4:8] %}
+        {% set soon_norm = 'normal' in fc[0:2] %}
+        {% set later_norm = 'normal' in fc[4:8] %}
+        {% if soon_high %} {{ [base, 55] | max }}
+        {% elif near_high %} {{ [base, 45] | max }}
+        {% elif soon_norm %} {{ [base, 40] | max }}
+        {% elif later_high %} {{ [base, 40] | max }}
+        {% elif later_norm %} {{ [base, 35] | max }}
+        {% else %} {{ base }}
+        {% endif %}
+
+  # 3) Anti-rondpompen ontladen + EV-blokker (PATCH: kW→W + export -> 0)
+  - variables:
+      house_pwr_ok: >-
+        {% set raw = states(v_house_pwr) %}
+        {% set p = raw | float(0) %}
+        {% set unit = (state_attr(v_house_pwr, 'unit_of_measurement') | default('', true) | lower) %}
+        {% if unit in ['kw'] %}
+          {% set pW = p * 1000 %}
+        {% elif p < 50 %}
+          {% set pW = p * 1000 %}
+        {% else %}
+          {% set pW = p %}
+        {% endif %}
+        {% set pW = [pW, 0] | max %}  {# export naar 0 voor ontladen #}
+        {% set minp = v_min_discharge_net_load_w | float(0) %}
+        {{ pW >= minp or minp <= 0 }}
+      block_ev: >-
+        {% if v_block_sensor in ['', None] %}
+          false
+        {% else %}
+          {% set ev = states(v_block_sensor) | float(0) %}
+          {% set thr = v_block_threshold | float(0) %}
+          {{ ev >= thr and thr > 0 }}
+        {% endif %}
+
+  # 3b) Anti-rondpompen LADEN (netimport-limiet; negatieve waarde = export → altijd OK)
+  - variables:
+      charge_import_ok: >-
+        {% set raw = states(v_house_pwr) %}
+        {% set p = raw | float(0) %}
+        {% set unit = (state_attr(v_house_pwr, 'unit_of_measurement') | default('', true) | lower) %}
+        {% if unit in ['kw'] %}
+          {% set pW = p * 1000 %}
+        {% elif (p | abs) < 50 %}
+          {% set pW = p * 1000 %}
+        {% else %}
+          {% set pW = p %}
+        {% endif %}
+        {% set lim = v_max_import_charge | float(0) %}
+        {% if lim <= 0 %}
+          true   {# beperking uit #}
+        {% else %}
+          {{ pW <= lim or pW < 0 }}
+        {% endif %}
+
+  # Debug: actuele inputs en afgeleiden
+  - service: system_log.write
+    data:
+      level: info
+      message: >
+        [TB-optimalisatie] price={{ price }},
+        cat={{ cat }}, soc={{ soc }}%,
+        dyn_reserve={{ dyn_reserve }},
+        house_pwr={{ states(v_house_pwr) }} {{ state_attr(v_house_pwr, 'unit_of_measurement') }},
+        house_pwr_ok(ontl)={{ house_pwr_ok }},
+        charge_import_ok(laden)={{ charge_import_ok }},
+        block_ev={{ block_ev }},
+        price_floor(ontl)={{ v_price_floor }},
+        price_ceiling(laden)={{ v_price_ceiling }},
+        soc_charge_min={{ v_soc_charge_min }},
+        soc_charge_target={{ v_soc_charge_target }}
+
+  # 4) Bepaal TARGETS (doelwaarden)
+  - variables:
+      target_mode: >-
+        home_optimization
+
+      # ---- Laden: nieuw ----
+      target_charge: >-
+        {% set soc_min = v_soc_charge_min | float(10) %}
+        {% set soc_tgt = v_soc_charge_target | float(80) %}
+        {% set ceiling = v_price_ceiling | float(0.12) %}
+        {% set pwr = v_p_charge | float(0) %}
+
+        {% if block_ev %}
+          0
+        {% elif soc < soc_min %}
+          {{ pwr if charge_import_ok and pwr > 0 else 0 }}
+        {% elif price <= ceiling and soc < soc_tgt %}
+          {{ pwr if charge_import_ok and pwr > 0 else 0 }}
+        {% else %}
+          0
+        {% endif %}
+
+      # ---- Ontladen: bestaande logica (price_floor knijpt alleen ontladen) ----
+      target_discharge: >-
+        {% if block_ev or soc <= (dyn_reserve | float(35)) %}
+          0
+        {% elif price < (v_price_floor | float(0.20)) %}
+          0
+        {% elif cat == 'high' %}
+          {{ v_p_high | float(0) }}  {# HIGH mag exporteren; house_pwr_ok niet vereist #}
+        {% elif cat == 'normal' %}
+          {% if house_pwr_ok %}
+            {{ v_p_med | float(0) }}
+          {% else %}
+            0
+          {% endif %}
+        {% elif cat == 'low' %}
+          {% if house_pwr_ok and soc >= (v_soc_low_floor | float(80)) %}
+            {{ v_p_low | float(0) }}
+          {% else %}
+            0
+          {% endif %}
+        {% else %}
+          0
+        {% endif %}
+
+  # Debug: targets vs current
+  - service: system_log.write
+    data:
+      level: info
+      message: >
+        [TB-optimalisatie] targets: mode={{ target_mode }},
+        charge={{ target_charge }}, discharge={{ target_discharge }};
+        current: mode={{ cur_mode }},
+        charge={{ cur_charge }}, discharge={{ cur_discharge }}
+
+  # 5) Niets gewijzigd? Stoppen zonder service-calls
+  - choose:
+      - conditions: >-
+          {{ (cur_mode == (target_mode | lower))
+             and (cur_charge == (target_charge | float(0)))
+             and (cur_discharge == (target_discharge | float(0))) }}
+        sequence:
+          - stop: "Geen wijzigingen nodig; automation stopt zonder service-calls."
+
+    default:
+      # 6) Alleen noodzakelijke wijzigingen zetten
+      - choose:
+          - conditions: "{{ cur_mode != (target_mode | lower) }}"
+            sequence:
+              - service: select.select_option
+                target: { entity_id: !input select_mode }
+                data: { option: "{{ target_mode }}" }
+
+      - choose:
+          - conditions: "{{ cur_charge != (target_charge | float(0)) }}"
+            sequence:
+              - service: number.set_value
+                target: { entity_id: !input number_charge_power }
+                data: { value: "{{ target_charge }}" }
+
+      - choose:
+          - conditions: "{{ cur_discharge != (target_discharge | float(0)) }}"
+            sequence:
+              - service: number.set_value
+                target: { entity_id: !input number_discharge_power }
+                data: { value: "{{ target_discharge }}" }
+
+mode: single
